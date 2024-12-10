@@ -43,42 +43,69 @@ export default function SetupProfilePage() {
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       if (userError || !user) throw userError || new Error('No user found')
 
-      const profileData = {
-        id: user.id,
-        full_name: name,
-        age: parseInt(age),
-        program,
-        gender,
-        preferences: { show: preference },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
-
-      const { error: profileError } = await supabase.from('profiles').upsert(profileData)
-      if (profileError) throw profileError
-
-      // Upload photos
+      // Upload photos first
+      const photoUrls = []
       for (let i = 0; i < photos.length; i++) {
         const file = photos[i]
         if (!file) continue
 
         const fileExt = file.name.split('.').pop()
         const fileName = `${user.id}/${Date.now()}-${i}.${fileExt}`
-        const { error: uploadError } = await supabase.storage.from('profile_photos').upload(fileName, file)
-        if (uploadError) throw uploadError
 
-        const { data: { publicUrl } } = supabase.storage.from('profile_photos').getPublicUrl(fileName)
-        await supabase.from('profile_photos').insert({
-          profile_id: user.id,
+        // Upload to Supabase Storage
+        const { error: uploadError, data } = await supabase.storage
+          .from('profile_photos')
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: false
+          })
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError)
+          throw uploadError
+        }
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('profile_photos')
+          .getPublicUrl(fileName)
+
+        photoUrls.push({
           url: publicUrl,
           is_primary: i === 0,
           order_index: i
         })
       }
 
+      // Create profile with photo URLs
+      const profileData = {
+        id: user.id,
+        full_name: name,
+        age: parseInt(age),
+        program,
+        gender,
+        preferences: {
+          show: preference
+        },
+        photos: photoUrls,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert(profileData)
+
+      if (profileError) {
+        console.error('Profile Error:', profileError)
+        throw profileError
+      }
+
+      // Success! Redirect to discover page
       router.push('/discover')
+
     } catch (error) {
-      console.error('Error setting up profile:', error)
+      console.error('Detailed Error:', error)
       alert('Error setting up profile. Please try again.')
     } finally {
       setIsSubmitting(false)
