@@ -52,12 +52,11 @@ export default function SetupProfilePage() {
         const fileExt = file.name.split('.').pop()
         const fileName = `${user.id}/${Date.now()}-${i}.${fileExt}`
 
-        // Upload to Supabase Storage - Note we're using 'profile' bucket instead of 'profile_photos'
-        const { error: uploadError, data } = await supabase.storage
-          .from('profile') // Changed from 'profile_photos' to 'profile'
+        const { error: uploadError } = await supabase.storage
+          .from('profiles')
           .upload(fileName, file, {
             cacheControl: '3600',
-            upsert: false
+            upsert: true
           })
 
         if (uploadError) {
@@ -65,9 +64,8 @@ export default function SetupProfilePage() {
           throw uploadError
         }
 
-        // Get public URL
         const { data: { publicUrl } } = supabase.storage
-          .from('profile')
+          .from('profiles')
           .getPublicUrl(fileName)
 
         photoUrls.push({
@@ -75,6 +73,8 @@ export default function SetupProfilePage() {
           is_primary: i === 0,
           order_index: i
         })
+
+        console.log('Successfully uploaded photo:', publicUrl)
       }
 
       // Create profile with photo URLs
@@ -84,21 +84,28 @@ export default function SetupProfilePage() {
         age: parseInt(age),
         program,
         gender,
-        preferences: {
-          show: preference
-        },
+        preferences: { gender_preference: preference },
         photos: photoUrls,
-        created_at: new Date().toISOString(),
+        avatar_url: photoUrls[0]?.url || null,
         updated_at: new Date().toISOString()
       }
 
+      console.log('Saving profile data:', profileData)
+
+      // First try to update
       const { error: profileError } = await supabase
         .from('profiles')
-        .upsert(profileData)
+        .update(profileData)
+        .eq('id', user.id)
 
       if (profileError) {
         console.error('Profile Error:', profileError)
-        throw profileError
+        // If update fails, try insert
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert(profileData)
+        
+        if (insertError) throw insertError
       }
 
       // Success! Redirect to discover page
