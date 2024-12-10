@@ -52,9 +52,9 @@ export default function SetupProfilePage() {
         const fileExt = file.name.split('.').pop()
         const fileName = `${user.id}/${Date.now()}-${i}.${fileExt}`
 
-        // Upload to Supabase Storage
+        // Upload to Supabase Storage - Note we're using 'profile' bucket instead of 'profile_photos'
         const { error: uploadError, data } = await supabase.storage
-          .from('profile_photos')
+          .from('profile') // Changed from 'profile_photos' to 'profile'
           .upload(fileName, file, {
             cacheControl: '3600',
             upsert: false
@@ -67,7 +67,7 @@ export default function SetupProfilePage() {
 
         // Get public URL
         const { data: { publicUrl } } = supabase.storage
-          .from('profile_photos')
+          .from('profile')
           .getPublicUrl(fileName)
 
         photoUrls.push({
