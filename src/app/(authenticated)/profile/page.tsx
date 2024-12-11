@@ -48,17 +48,34 @@ export default function ProfilePage() {
     async function getProfile() {
       try {
         const { data: { user } } = await supabase.auth.getUser()
-        if (!user) throw new Error('No user')
+        if (!user) {
+          router.push('/auth/login')
+          return
+        }
 
         const { data, error } = await supabase
           .from('profiles')
-          .select('*')
+          .select(`
+            id,
+            full_name,
+            age,
+            program,
+            bio,
+            gender,
+            preferences,
+            photos,
+            avatar_url
+          `)
           .eq('id', user.id)
           .single()
 
-        if (error) throw error
+        if (error) {
+          console.error('Error fetching profile:', error)
+          return
+        }
 
         if (data) {
+          console.log('Fetched profile data:', data)
           setProfile({
             full_name: data.full_name || '',
             age: data.age?.toString() || '',
@@ -70,14 +87,14 @@ export default function ProfilePage() {
           })
         }
       } catch (error) {
-        console.error('Error fetching profile:', error)
+        console.error('Error loading profile:', error)
       } finally {
         setIsLoading(false)
       }
     }
 
     getProfile()
-  }, [])
+  }, [router])
 
   const handlePhotoUpload = async (file: File, index: number) => {
     try {

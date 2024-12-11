@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { BottomNav } from '@/components/bottom-nav'
 import { useMatching } from '@/hooks/useMatching'
 import { createClient } from '@supabase/supabase-js'
-import { useAuth } from '../../../lib/AuthContext'
+import { useAuth, AuthContextType } from '@/lib/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { PhotoCarousel } from '@/components/photo-carousel'
 
@@ -25,7 +25,7 @@ interface Profile {
 }
 
 export default function DiscoverPage() {
-  const { user, profile } = useAuth()
+  const { user, profile } = useAuth() as AuthContextType
   const { handleSwipe } = useMatching()
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -33,21 +33,33 @@ export default function DiscoverPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (user && profile) {
-      fetchProfiles()
+    if (user?.id) {
+      fetchProfiles(user.id)
     }
-  }, [user, profile])
+  }, [user?.id])
 
-  const fetchProfiles = async () => {
+  const fetchProfiles = async (userId: string) => {
     try {
-      const { data: userProfile, error: profileError } = await supabase
+      console.log('Starting fetchProfiles for user:', userId)
+
+      // First get current user's gender
+      const { data: userProfile, error: userError } = await supabase
         .from('profiles')
-        .select('preferences, gender')
-        .eq('id', user?.id)
+        .select('gender')
+        .eq('id', userId)
         .single()
 
-      if (profileError) throw profileError
+      if (userError) {
+        console.error('Error fetching user gender:', userError)
+        return
+      }
 
+      // Determine which gender to show
+      const oppositeGender = userProfile.gender === 'male' ? 'female' : 'male'
+      console.log('User gender:', userProfile.gender)
+      console.log('Looking for:', oppositeGender)
+
+      // Get profiles of opposite gender
       const { data, error } = await supabase
         .from('profiles')
         .select(`
@@ -57,27 +69,28 @@ export default function DiscoverPage() {
           bio,
           age,
           gender,
-          photos (url),
+          photos,
           preferences
         `)
-        .neq('id', user?.id)
-        .eq('gender', userProfile?.preferences?.gender_preference)
-        .not('id', 'in', 
-          supabase
-            .from('likes')
-            .select('liked_user_id')
-            .eq('user_id', user?.id)
-        )
-        .order('created_at', { ascending: false })
+        .neq('id', userId)
+        .eq('gender', oppositeGender)
 
-      if (error) throw error
+      if (error) {
+        console.error('Error fetching profiles:', error)
+        throw error
+      }
 
-      if (data) {
+      console.log('Filtered profiles:', data)
+
+      if (data && data.length > 0) {
         setProfiles(data)
         setCurrentIndex(0)
+      } else {
+        console.log('No profiles found after filtering')
       }
+
     } catch (error) {
-      console.error('Error fetching profiles:', error)
+      console.error('Error in fetchProfiles:', error)
     } finally {
       setLoading(false)
     }
@@ -86,21 +99,18 @@ export default function DiscoverPage() {
   const currentProfile = profiles[currentIndex]
 
   const swipe = async (dir: string) => {
-    if (!currentProfile) return
+    if (!currentProfile || !user?.id) return
 
     setDirection(dir)
     
-    // Handle the swipe in the backend
     const isLike = dir === 'right' || dir === 'super'
     await handleSwipe(currentProfile.id, isLike)
 
-    // Animate and move to next profile
     setTimeout(() => {
       setDirection(null)
       setCurrentIndex((prev) => {
-        // If we're at the last profile, fetch more or reset
         if (prev === profiles.length - 1) {
-          fetchProfiles()
+          fetchProfiles(user.id)
           return 0
         }
         return prev + 1
@@ -117,7 +127,7 @@ export default function DiscoverPage() {
             <h2 className="text-xl font-semibold mb-2">No More Profiles</h2>
             <p className="text-gray-600 mb-4">Check back later for new matches!</p>
             <Button 
-              onClick={fetchProfiles}
+              onClick={() => user?.id && fetchProfiles(user.id)}
               className="bg-isb-blue text-white hover:bg-isb-blue/90"
             >
               Refresh Profiles

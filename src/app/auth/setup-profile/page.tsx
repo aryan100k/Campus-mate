@@ -83,8 +83,10 @@ export default function SetupProfilePage() {
         full_name: name,
         age: parseInt(age),
         program,
-        gender,
-        preferences: { gender_preference: preference },
+        gender: gender.toLowerCase(),
+        preferences: { 
+          gender_preference: preference.toLowerCase()
+        },
         photos: photoUrls,
         avatar_url: photoUrls[0]?.url || null,
         updated_at: new Date().toISOString()
@@ -92,20 +94,13 @@ export default function SetupProfilePage() {
 
       console.log('Saving profile data:', profileData)
 
-      // First try to update
       const { error: profileError } = await supabase
         .from('profiles')
-        .update(profileData)
-        .eq('id', user.id)
+        .upsert(profileData)
 
       if (profileError) {
         console.error('Profile Error:', profileError)
-        // If update fails, try insert
-        const { error: insertError } = await supabase
-          .from('profiles')
-          .insert(profileData)
-        
-        if (insertError) throw insertError
+        throw profileError
       }
 
       // Success! Redirect to discover page
