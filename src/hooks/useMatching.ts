@@ -1,82 +1,135 @@
 'use client'
-import { useState } from 'react'
-import { supabase } from '../lib/supabase'
-import { useAuth } from '../lib/AuthContext'
 
-interface MatchResult {
-  isMatch: boolean
-  matchId?: string
+import { supabase } from '@/lib/supabase'
+
+interface SwipeResult {
+  success: boolean
+  matched?: boolean
   error?: string
+  matchData?: {
+    id: string
+    user_name: string
+    target_name: string
+    user_photos: { url: string }[]
+    target_photos: { url: string }[]
+  }
 }
 
-export function useMatching() {
-  const { user } = useAuth()
-  const [loading, setLoading] = useState(false)
-
-  const handleSwipe = async (targetUserId: string, isLike: boolean): Promise<MatchResult> => {
-    if (!user) return { isMatch: false, error: 'No user found' }
-
-    setLoading(true)
+export const useMatching = () => {
+  const handleSwipe = async (targetProfileId: string, isLike: boolean): Promise<SwipeResult> => {
     try {
-      // Skip if it's a pass
-      if (!isLike) {
-        return { isMatch: false }
+      console.log('handleSwipe called:', { targetProfileId, isLike })
+      
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError || !user) {
+        console.error('Auth error:', authError)
+        throw new Error('Authentication required')
       }
 
-      // Record the swipe
-      const { error: likeError } = await supabase
-        .from('likes')
-        .insert({
-          user_id: user.id,
-          liked_user_id: targetUserId,
-          created_at: new Date().toISOString()
-        })
+      console.log('Current user:', user.id)
 
-      if (likeError) throw likeError
-
-      // Check if it's a match
-      const { data: matchData, error: matchCheckError } = await supabase
-        .from('likes')
-        .select()
-        .eq('user_id', targetUserId)
-        .eq('liked_user_id', user.id)
+      // First check if there's already a match record
+      const { data: existingMatch, error: matchError } = await supabase
+        .from('matches')
+        .select(`
+          *,
+          user:profiles!matches_user_id_fkey (
+            full_name,
+            photos
+          ),
+          target:profiles!matches_target_id_fkey (
+            full_name,
+            photos
+          )
+        `)
+        .or(`and(user_id.eq.${user.id},target_id.eq.${targetProfileId}),and(user_id.eq.${targetProfileId},target_id.eq.${user.id})`)
         .single()
 
-      if (matchCheckError && matchCheckError.code !== 'PGRST116') {
-        throw matchCheckError
-      }
+      console.log('Existing match check:', { existingMatch, matchError })
 
-      if (matchData) {
-        // Create a match
-        const { data: newMatch, error: matchError } = await supabase
+      if (existingMatch) {
+        console.log('Updating existing match')
+        // Update existing match
+        const { data: updatedMatch, error: updateError } = await supabase
           .from('matches')
-          .insert({
-            user1_id: user.id,
-            user2_id: targetUserId,
-            created_at: new Date().toISOString()
+          .update({
+            liked: isLike,
+            updated_at: new Date().toISOString()
           })
-          .select()
+          .eq('id', existingMatch.id)
+          .select(`
+            *,
+            user:profiles!matches_user_id_fkey (
+              full_name,
+              photos
+            ),
+            target:profiles!matches_target_id_fkey (
+              full_name,
+              photos
+            )
+          `)
           .single()
 
-        if (matchError) throw matchError
+        if (updateError) throw updateError
 
-        return { 
-          isMatch: true, 
-          matchId: newMatch.id 
+        // Check if it's a match after update
+        const { data: matchStatus } = await supabase
+          .from('matches')
+          .select('matched')
+          .eq('id', existingMatch.id)
+          .single()
+
+        return {
+          success: true,
+          matched: matchStatus?.matched || false,
+          matchData: matchStatus?.matched ? {
+            id: updatedMatch.id,
+            user_name: updatedMatch.user.full_name,
+            target_name: updatedMatch.target.full_name,
+            user_photos: updatedMatch.user.photos,
+            target_photos: updatedMatch.target.photos
+          } : undefined
+        }
+      } else {
+        console.log('Creating new match')
+        // Create new match
+        const { data: newMatch, error: insertError } = await supabase
+          .from('matches')
+          .insert({
+            user_id: user.id,
+            target_id: targetProfileId,
+            liked: isLike,
+            matched: false
+          })
+          .select(`
+            *,
+            user:profiles!matches_user_id_fkey (
+              full_name,
+              photos
+            ),
+            target:profiles!matches_target_id_fkey (
+              full_name,
+              photos
+            )
+          `)
+          .single()
+
+        if (insertError) throw insertError
+
+        return {
+          success: true,
+          matched: false
         }
       }
-
-      return { isMatch: false }
     } catch (error) {
-      console.error('Error handling swipe:', error)
-      return { 
-        isMatch: false, 
-        error: 'Failed to process swipe' 
+      console.error('Detailed error in handleSwipe:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
       }
-    } finally {
-      setLoading(false)
     }
   }
 
-  return { handleSwipe, loading }
+  return { handleSwipe }
 } 

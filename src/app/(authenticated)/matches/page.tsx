@@ -10,13 +10,15 @@ import { Badge } from '../../../components/ui/badge'
 
 interface Match {
   id: string
-  user1_id: string
-  user2_id: string
-  user1: {
+  user_id: string
+  target_id: string
+  matched: boolean
+  liked: boolean
+  user: {
     full_name: string
     photos: { url: string }[]
   }
-  user2: {
+  target: {
     full_name: string
     photos: { url: string }[]
   }
@@ -43,20 +45,21 @@ export default function MatchesPage() {
         .from('matches')
         .select(`
           *,
-          user1:profiles!matches_user1_id_fkey(
+          user:profiles!matches_user_id_fkey(
             full_name,
-            photos(url)
+            photos
           ),
-          user2:profiles!matches_user2_id_fkey(
+          target:profiles!matches_target_id_fkey(
             full_name,
-            photos(url)
+            photos
           ),
           last_message:messages(
             content,
             created_at
           )
         `)
-        .or(`user1_id.eq.${user?.id},user2_id.eq.${user?.id}`)
+        .eq('matched', true)
+        .or(`user_id.eq.${user?.id},target_id.eq.${user?.id}`)
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -70,7 +73,7 @@ export default function MatchesPage() {
   }
 
   const getOtherUser = (match: Match) => {
-    return match.user1_id === user?.id ? match.user2 : match.user1
+    return match.user_id === user?.id ? match.target : match.user
   }
 
   if (loading) {
