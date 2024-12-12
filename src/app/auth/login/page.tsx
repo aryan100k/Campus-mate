@@ -28,21 +28,11 @@ export default function LoginPage() {
 
       if (error) throw error
 
-      // Check if profile exists
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', data.user.id)
-        .single()
-
-      // Redirect based on profile existence
-      if (profile) {
-        router.push('/discover')  // Profile exists, go to main app
-      } else {
-        router.push('/auth/setup-profile')  // No profile, go to setup
-      }
+      console.log('Login successful:', data)
+      router.push('/discover')
 
     } catch (error) {
+      console.error('Login error:', error)
       setError('Invalid login credentials')
     } finally {
       setIsLoading(false)

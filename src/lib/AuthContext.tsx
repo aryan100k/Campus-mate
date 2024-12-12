@@ -30,41 +30,84 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
 
   useEffect(() => {
+    console.log('AuthProvider initializing')
+    setLoading(true)
+    
     // Check active sessions
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      console.log('Session check:', { 
+        hasSession: Boolean(session), 
+        userId: session?.user?.id,
+        error,
+        pathname: window.location.pathname
+      })
+
       if (session?.user) {
-        fetchProfile(session.user.id)
+        console.log('Setting user:', session.user.id)
+        setUser(session.user)
+        fetchProfile(session.user.id).finally(() => {
+          setLoading(false)
+          console.log('Auth initialization complete:', {
+            userId: session.user.id,
+            hasProfile: Boolean(profile)
+          })
+        })
+      } else {
+        console.log('No active session, checking route')
+        setUser(null)
+        setProfile(null)
+        setLoading(false)
+        
+        // Only redirect if we're on a protected route
+        const isPublicRoute = 
+          window.location.pathname.startsWith('/auth/') || 
+          window.location.pathname === '/login' ||
+          window.location.pathname === '/'
+        
+        if (!isPublicRoute) {
+          console.log('Redirecting to login from:', window.location.pathname)
+          router.push('/auth/login')
+        }
       }
-      setLoading(false)
     })
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null)
+      console.log('Auth state changed:', { event, userId: session?.user?.id })
+      
       if (session?.user) {
+        setUser(session.user)
         await fetchProfile(session.user.id)
       } else {
+        setUser(null)
         setProfile(null)
       }
       setLoading(false)
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [router])
 
   const fetchProfile = async (userId: string) => {
     try {
+      console.log('Fetching profile for:', userId)
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('*, preferences')
         .eq('id', userId)
         .single()
       
-      if (error) throw error
+      if (error) {
+        console.error('Profile fetch error:', error)
+        throw error
+      }
+
+      console.log('Profile fetched:', data)
       setProfile(data)
+      return data
     } catch (error) {
-      console.error('Error fetching profile:', error)
+      console.error('Error in fetchProfile:', error)
+      return null
     }
   }
 
