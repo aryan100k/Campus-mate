@@ -2,12 +2,16 @@
 
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from './supabase'
+import { User } from '@supabase/supabase-js'
+import { Session } from 'inspector'
 
-export const AuthContext = createContext<{
-  user: any
-  session: any
+interface AuthContextType {
+  user: User | null
+  session: Session | null
   signOut: () => Promise<void>
-}>({
+}
+
+export const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
   signOut: async () => {},

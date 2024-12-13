@@ -29,7 +29,7 @@ console.log('DiscoverPage module loaded')
 
 export default function DiscoverPage() {
   const router = useRouter()
-  const { user, profile: authProfile } = useAuth()
+  const { user } = useAuth()
   const { handleSwipe } = useMatching()
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -37,6 +37,25 @@ export default function DiscoverPage() {
   const [loading, setLoading] = useState(true)
   const [showMatch, setShowMatch] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user?.id) return
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+
+      if (data && !error) {
+        setProfile(data)
+      }
+    }
+
+    fetchProfile()
+  }, [user?.id])
 
   // Define fetchProfiles function first
   const fetchProfiles = async (userId: string) => {
@@ -353,3 +372,4 @@ export default function DiscoverPage() {
     </main>
   )
 }
+
