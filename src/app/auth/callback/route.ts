@@ -15,21 +15,34 @@ export async function GET(request: Request) {
       
       if (error) throw error
 
-      // Create initial profile
-      const { error: profileError } = await supabase
+      // Check if profile exists
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .insert([
-          { 
-            id: user?.id,
-            email: user?.email,
-            created_at: new Date().toISOString()
-          }
-        ])
+        .select('id')
+        .eq('id', user?.id)
+        .single()
 
-      if (profileError) throw profileError
+      if (profileError && profileError.code !== 'PGRST116') { // PGRST116 is "not found" error
+        throw profileError
+      }
 
-      // Redirect to profile setup
-      return NextResponse.redirect(requestUrl.origin + '/auth/setup-profile')
+      // If profile doesn't exist, create initial profile
+      if (!profile) {
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert([
+            { 
+              id: user?.id,
+              email: user?.email,
+              created_at: new Date().toISOString()
+            }
+          ])
+
+        if (insertError) throw insertError
+      }
+
+      // Always redirect to login after verification
+      return NextResponse.redirect(requestUrl.origin + '/auth/login')
     } catch (error) {
       console.error('Error in callback:', error)
       return NextResponse.redirect(requestUrl.origin + '/auth/login?error=callback_error')

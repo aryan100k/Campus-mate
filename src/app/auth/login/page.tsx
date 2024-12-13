@@ -21,68 +21,97 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      // Sign in the user
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
-      if (error) throw error
+      if (authError) throw authError
 
-      console.log('Login successful:', data)
+      // Check if profile exists and is complete
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('full_name, program, gender, age, photos')
+        .eq('id', authData.user.id)
+
+      // Handle profile check
+      if (profileError && profileError.code !== 'PGRST116') {
+        throw profileError
+      }
+
+      const profile = profiles?.[0]
+      
+      // If no profile exists or profile is incomplete, redirect to setup
+      if (!profile || !isProfileComplete(profile)) {
+        router.push('/auth/setup-profile')
+        return
+      }
+
+      // Profile exists and is complete, redirect to discover
       router.push('/discover')
 
     } catch (error) {
       console.error('Login error:', error)
-      setError('Invalid login credentials')
+      setError(error instanceof Error ? error.message : 'An error occurred during login')
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Helper function to check if profile is complete
+  const isProfileComplete = (profile: any) => {
+    return Boolean(
+      profile.full_name &&
+      profile.program &&
+      profile.gender &&
+      profile.age &&
+      profile.photos
+    )
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-primary p-8">
       <div className="w-full max-w-md space-y-8 p-8 bg-white rounded-3xl shadow-xl">
         <div className="text-center">
-          <h1 className="mt-6 text-4xl font-bold text-campus-pink">Welcome Back!</h1>
-          <p className="mt-2 text-sm text-gray-500">Sign in to your account</p>
+          <h1 className="text-4xl font-bold text-campus-pink">Welcome Back!</h1>
+          <p className="mt-2 text-gray-600">Sign in to your account</p>
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleLogin}>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="email" className="text-gray-700">Email</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
-                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 rounded-full"
-                disabled={isLoading}
+                required
+                className="mt-1"
               />
             </div>
 
             <div>
-              <Label htmlFor="password" className="text-gray-700">Password</Label>
+              <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
                 type="password"
-                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 rounded-full"
-                disabled={isLoading}
+                required
+                className="mt-1"
               />
             </div>
           </div>
 
           {error && (
-            <p className="text-action-error text-sm text-center">{error}</p>
+            <p className="text-red-500 text-sm text-center">{error}</p>
           )}
 
           <Button
             type="submit"
-            className="w-full bg-gradient-primary hover:bg-gradient-primary-hover text-white font-bold py-2 px-4 rounded-full transition duration-300"
+            className="w-full bg-gradient-primary hover:bg-gradient-primary-hover text-white"
             disabled={isLoading}
           >
             {isLoading ? 'Signing in...' : 'Sign In'}

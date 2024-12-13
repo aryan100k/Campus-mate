@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { BottomNav } from '@/components/bottom-nav'
 import { useMatching } from '@/hooks/useMatching'
 import { createClient } from '@supabase/supabase-js'
-import { useAuth, AuthContextType } from '@/lib/AuthContext'
+import { useAuth } from '@/lib/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { PhotoCarousel } from '@/components/photo-carousel'
 
@@ -29,129 +29,120 @@ console.log('DiscoverPage module loaded')
 
 export default function DiscoverPage() {
   const router = useRouter()
-  const { user, profile } = useAuth() as AuthContextType
+  const { user, profile: authProfile } = useAuth()
   const { handleSwipe } = useMatching()
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [direction, setDirection] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [showMatch, setShowMatch] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
 
-  console.log('Component rendered:', { 
-    userId: user?.id, 
-    hasProfile: Boolean(profile),
-    profilesCount: profiles.length,
-    currentIndex
-  })
-
-  useEffect(() => {
-    console.log('DiscoverPage mount:', {
-      user,
-      profile,
-      loading,
-      profilesCount: profiles.length
-    })
-  }, [])
-
-  useEffect(() => {
-    const initializeProfiles = async () => {
-      console.log('useEffect triggered, checking auth...')
-      
-      // Get current session
-      const { data: { session }, error } = await supabase.auth.getSession()
-      
-      if (error) {
-        console.error('Auth error:', error)
-        return
-      }
-
-      if (session?.user?.id) {
-        console.log('User authenticated:', session.user.id)
-        await fetchProfiles(session.user.id)
-      } else {
-        console.log('No authenticated user found')
-      }
-    }
-
-    initializeProfiles()
-  }, [])
-
+  // Define fetchProfiles function first
   const fetchProfiles = async (userId: string) => {
     try {
       console.log('Starting fetchProfiles for user:', userId)
-
-      // First get current user's gender
+      
+      // Get user's profile
       const { data: userProfile, error: userError } = await supabase
         .from('profiles')
-        .select('gender')
+        .select('*')
         .eq('id', userId)
         .single()
 
-      if (userError || !userProfile?.gender) {
-        console.error('Error fetching user gender:', userError)
+      if (userError) {
+        console.error('Error fetching user profile:', userError)
         return
       }
 
-      // Determine which gender to show
-      const oppositeGender = userProfile.gender === 'male' ? 'female' : 'male'
-      console.log('Looking for profiles with gender:', oppositeGender)
-
-      // Get all profiles of opposite gender that haven't been matched yet
-      const { data: allProfiles, error } = await supabase
-        .from('profiles')
-        .select(`
-          id,
-          full_name,
-          program,
-          bio,
-          age,
-          gender,
-          photos,
-          preferences
-        `)
-        .neq('id', userId)
-        .eq('gender', oppositeGender)
-
-      if (error) {
-        console.error('Error fetching profiles:', error)
-        return
-      }
-
-      // Get existing matches for this user
-      const { data: matches } = await supabase
-        .from('matches')
+      // Get already swiped profiles
+      const { data: swipes } = await supabase
+        .from('swipes')
         .select('target_id')
         .eq('user_id', userId)
 
-      // Filter out profiles that have already been swiped on
-      const swipedProfileIds = matches?.map(m => m.target_id) || []
-      const unswipedProfiles = allProfiles.filter(profile => 
-        !swipedProfileIds.includes(profile.id)
-      )
+      const swipedIds = swipes?.map(swipe => swipe.target_id) || []
 
-      console.log('Filtered profiles:', {
-        total: allProfiles?.length,
-        unmatched: unswipedProfiles?.length,
-        alreadySwiped: swipedProfileIds.length
-      })
+      // Get potential matches excluding already swiped profiles
+      const { data: potentialMatches, error: matchError } = await supabase
+        .from('profiles')
+        .select('*')
+        .neq('id', userId)
+        .eq('gender', userProfile.gender === 'Man' ? 'Woman' : 'Man')
+        .not('id', 'in', `(${swipedIds.join(',')})`)
 
-      if (unswipedProfiles?.length) {
-        const validProfiles = unswipedProfiles.filter(profile => 
+      if (matchError) {
+        console.error('Error fetching matches:', matchError)
+        return
+      }
+
+      if (potentialMatches) {
+        const validProfiles = potentialMatches.filter(profile => 
           profile.photos && 
           profile.photos.length > 0 && 
           profile.full_name &&
           profile.age
         )
+        console.log('Valid profiles after filtering:', validProfiles)
         setProfiles(validProfiles)
-        setCurrentIndex(0)
-      } else {
-        setProfiles([])
       }
     } catch (error) {
       console.error('Error in fetchProfiles:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log('Current session:', session)
+      
+      if (!session) {
+        console.log('No session found, redirecting to login...')
+        router.push('/login')
+        return
+      }
+
+      if (session?.user?.id) {
+        console.log('Setting user ID:', session.user.id)
+        setUserId(session.user.id)
+        await fetchProfiles(session.user.id)
+      }
+    }
+    
+    checkAuth()
+  }, [])
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Loading profiles...</p>
+      </div>
+    )
+  }
+
+  // No profiles state
+  if (!loading && (!profiles.length || currentIndex >= profiles.length)) {
+    return (
+      <main className="min-h-screen bg-gray-100 pb-16">
+        <div className="container max-w-md mx-auto pt-4 px-4">
+          <h1 className="text-2xl font-bold text-isb-blue mb-4">Discover</h1>
+          <div className="text-center py-12">
+            <h2 className="text-xl font-semibold mb-2">No More Profiles</h2>
+            <p className="text-gray-600 mb-4">Check back later for new matches!</p>
+            <Button 
+              onClick={() => user?.id && fetchProfiles(user.id)}
+              className="bg-isb-blue text-white hover:bg-isb-blue/90"
+            >
+              Refresh Profiles
+            </Button>
+          </div>
+        </div>
+        <BottomNav />
+      </main>
+    )
   }
 
   const currentProfile = profiles[currentIndex]
@@ -174,47 +165,49 @@ export default function DiscoverPage() {
   }
 
   const swipe = async (dir: string) => {
-    if (!currentProfile) {
-      console.error('No current profile to swipe on')
+    if (!userId) {
+      console.error('No user ID available, current userId:', userId)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user?.id) {
+        setUserId(session.user.id)
+      } else {
+        console.error('Could not get user ID even after refresh')
+        return
+      }
+    }
+
+    if (!profiles[currentIndex]) {
+      console.error('No current profile available')
       return
     }
+
+    const currentProfile = profiles[currentIndex]
+    console.log('Processing swipe:', { 
+      direction: dir, 
+      currentProfileId: currentProfile.id,
+      userId: userId 
+    })
 
     try {
       setDirection(dir)
       const isLike = dir === 'right' || dir === 'super'
-      
-      // Start animation
-      handleSwipeAnimation(dir)
+      const isSuperLike = dir === 'super'
 
-      const result = await handleSwipe(currentProfile.id, isLike)
+      const result = await handleSwipe(currentProfile.id, isLike, isSuperLike)
       console.log('Swipe result:', result)
 
-      if (result.success) {
-        // Original vibration code
-        if (window.navigator && window.navigator.vibrate) {
-          window.navigator.vibrate(50)
+      if (result.success && result.matched) {
+        setShowMatch(true)
+        if (window.navigator?.vibrate) {
+          window.navigator.vibrate([100, 50, 100])
         }
-
-        if (result.matched) {
-          setShowMatch(true)
-        }
-
-        // Move to next profile after animation
-        setTimeout(() => {
-          setDirection(null)
-          setCurrentIndex((prev) => {
-            const nextIndex = prev + 1
-            if (nextIndex >= profiles.length) {
-              console.log('No more profiles, fetching new ones')
-              if (user?.id) {
-                fetchProfiles(user.id)  // Refresh the profiles
-              }
-              return 0
-            }
-            return nextIndex
-          })
-        }, 500)
       }
+
+      setTimeout(() => {
+        setDirection(null)
+        setCurrentIndex(prev => prev + 1)
+      }, 300)
+
     } catch (error) {
       console.error('Swipe error:', error)
       setDirection(null)
@@ -249,7 +242,7 @@ export default function DiscoverPage() {
           <div className="space-y-4">
             <Button 
               onClick={() => {
-                router.push('/messages')
+                router.push(`/messages/${profile.id}`)
                 onClose()
               }}
               className="w-full bg-gradient-to-r from-pink-500 to-orange-500"
@@ -266,41 +259,6 @@ export default function DiscoverPage() {
           </div>
         </div>
       </motion.div>
-    )
-  }
-
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-gray-100 pb-16">
-        <div className="container max-w-md mx-auto pt-4 px-4">
-          <h1 className="text-2xl font-bold text-isb-blue mb-4">Discover</h1>
-          <div className="flex items-center justify-center h-[600px]">
-            <p className="text-lg text-gray-600">Loading profiles...</p>
-          </div>
-        </div>
-        <BottomNav />
-      </main>
-    )
-  }
-
-  if (!loading && (!profiles.length || currentIndex >= profiles.length)) {
-    return (
-      <main className="min-h-screen bg-gray-100 pb-16">
-        <div className="container max-w-md mx-auto pt-4 px-4">
-          <h1 className="text-2xl font-bold text-isb-blue mb-4">Discover</h1>
-          <div className="text-center py-12">
-            <h2 className="text-xl font-semibold mb-2">No More Profiles</h2>
-            <p className="text-gray-600 mb-4">Check back later for new matches!</p>
-            <Button 
-              onClick={() => user?.id && fetchProfiles(user.id)}
-              className="bg-isb-blue text-white hover:bg-isb-blue/90"
-            >
-              Refresh Profiles
-            </Button>
-          </div>
-        </div>
-        <BottomNav />
-      </main>
     )
   }
 
@@ -361,48 +319,23 @@ export default function DiscoverPage() {
 
         <div className="flex justify-center gap-4 mt-6">
           <Button
-            onClick={() => {
-              console.log('Dislike button clicked', {
-                userId: user?.id,
-                currentProfile: currentProfile?.id
-              })
-              if (currentProfile) {
-                swipe('left')
-              }
-            }}
+            onClick={() => swipe('left')}
             size="icon"
             className="h-14 w-14 rounded-full bg-white border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
-            disabled={!currentProfile || loading}
           >
             <X className="h-6 w-6" />
           </Button>
           <Button
-            onClick={() => {
-              console.log('Super like button clicked', {
-                userId: user?.id,
-                currentProfile: currentProfile?.id
-              })
-              swipe('super')
-            }}
+            onClick={() => swipe('super')}
             size="icon"
             className="h-14 w-14 rounded-full bg-white border-2 border-isb-gold text-isb-gold hover:bg-isb-gold hover:text-white"
-            disabled={loading}
           >
             <Star className="h-6 w-6" />
           </Button>
           <Button
-            onClick={() => {
-              console.log('Like button clicked', {
-                userId: user?.id,
-                currentProfile: currentProfile?.id
-              })
-              if (currentProfile) {
-                swipe('right')
-              }
-            }}
+            onClick={() => swipe('right')}
             size="icon"
             className="h-14 w-14 rounded-full bg-white border-2 border-green-500 text-green-500 hover:bg-green-500 hover:text-white"
-            disabled={!currentProfile || loading}
           >
             <Heart className="h-6 w-6" />
           </Button>

@@ -1,124 +1,125 @@
 'use client'
 
+import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
-
-interface SwipeResult {
-  success: boolean
-  matched?: boolean
-  error?: string
-  matchData?: {
-    id: string
-    user_name: string
-    target_name: string
-    user_photos: { url: string }[]
-    target_photos: { url: string }[]
-  }
-}
+import { useAuth } from '@/lib/AuthContext'
 
 export const useMatching = () => {
-  const handleSwipe = async (targetProfileId: string, isLike: boolean): Promise<SwipeResult> => {
+  const { user } = useAuth()
+  const [isProcessing, setIsProcessing] = useState(false)
+
+  const handleSwipe = async (targetId: string, isLike: boolean, isSuperLike: boolean = false) => {
+    // Get current session to ensure we have latest user data
+    const { data: { session } } = await supabase.auth.getSession()
+    const currentUserId = session?.user?.id
+
+    console.log('handleSwipe details:', {
+      targetId,
+      isLike,
+      isSuperLike,
+      currentUserId,
+      isProcessing
+    })
+    
+    if (!currentUserId || isProcessing) {
+      console.error('Invalid swipe state:', { currentUserId, isProcessing })
+      return { success: false }
+    }
+    
+    setIsProcessing(true)
+    
     try {
-      console.log('handleSwipe started:', { targetProfileId, isLike })
-      
-      const { data: { user }, error: authError } = await supabase.auth.getUser()
-      
-      if (authError || !user) {
-        console.error('Auth error in handleSwipe:', authError)
-        throw new Error('Authentication required')
+      console.log('Recording swipe action...')
+      // Record the swipe
+      const { error: swipeError } = await supabase
+        .from('swipes')
+        .insert({
+          user_id: currentUserId,
+          target_id: targetId,
+          action: isLike ? 'like' : 'dislike'
+        })
+
+      if (swipeError) {
+        console.error('Swipe recording error:', swipeError)
+        throw swipeError
       }
 
-      // First check for existing match in either direction
-      const { data: existingMatches, error: matchError } = await supabase
-        .from('matches')
+      if (!isLike) {
+        console.log('Dislike recorded successfully')
+        return { success: true, matched: false }
+      }
+
+      console.log('Checking for mutual like...')
+      // Check if target has already liked the user
+      const { data: existingLike, error: likeError } = await supabase
+        .from('swipes')
         .select('*')
-        .or(`and(user_id.eq.${user.id},target_id.eq.${targetProfileId}),and(user_id.eq.${targetProfileId},target_id.eq.${user.id})`)
+        .eq('user_id', targetId)
+        .eq('target_id', currentUserId)
+        .eq('action', 'like')
+        .single()
 
-      if (matchError) {
-        console.error('Error checking matches:', matchError)
-        throw matchError
+      if (likeError && likeError.code !== 'PGRST116') { // Ignore not found error
+        console.error('Error checking existing like:', likeError)
+        throw likeError
       }
 
-      const ourMatch = existingMatches?.find(m => 
-        m.user_id === user.id && m.target_id === targetProfileId
-      )
+      console.log('Existing like found:', existingLike)
 
-      const theirMatch = existingMatches?.find(m => 
-        m.user_id === targetProfileId && m.target_id === user.id
-      )
-
-      if (ourMatch) {
-        // Update our existing match
-        const { data: updatedMatch, error: updateError } = await supabase
+      // If there's a match, create it
+      if (existingLike) {
+        console.log('Creating new match...')
+        const { data: match, error: matchError } = await supabase
           .from('matches')
-          .update({ 
-            liked: isLike,
-            matched: isLike && theirMatch?.liked === true,
-            updated_at: new Date().toISOString()
+          .insert({
+            user1_id: currentUserId,
+            user2_id: targetId
           })
-          .eq('id', ourMatch.id)
           .select()
           .single()
 
-        if (updateError) throw updateError
-
-        // If they liked us and we just liked them, update their match too
-        if (isLike && theirMatch?.liked) {
-          await supabase
-            .from('matches')
-            .update({ 
-              matched: true,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', theirMatch.id)
+        if (matchError) {
+          console.error('Match creation error:', matchError)
+          throw matchError
         }
 
+        console.log('Creating chat room...')
+        // Create a chat room for the match
+        const { data: chatRoom, error: chatError } = await supabase
+          .from('chat_rooms')
+          .insert({
+            match_id: match.id
+          })
+          .select()
+          .single()
+
+        if (chatError) {
+          console.error('Chat room creation error:', chatError)
+          throw chatError
+        }
+
+        console.log('Match and chat room created successfully')
         return {
           success: true,
-          matched: isLike && theirMatch?.liked === true
+          matched: true,
+          matchData: {
+            matchId: match.id,
+            chatRoomId: chatRoom.id,
+            targetId
+          }
         }
       }
 
-      // Create new match if none exists
-      const { data: newMatch, error: insertError } = await supabase
-        .from('matches')
-        .insert({
-          user_id: user.id,
-          target_id: targetProfileId,
-          liked: isLike,
-          matched: isLike && theirMatch?.liked === true
-        })
-        .select()
-        .single()
-
-      if (insertError) {
-        console.error('Error creating match:', insertError)
-        throw insertError
-      }
-
-      // If they already liked us and we just liked them
-      if (isLike && theirMatch?.liked) {
-        await supabase
-          .from('matches')
-          .update({ 
-            matched: true,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', theirMatch.id)
-      }
-
-      return {
-        success: true,
-        matched: isLike && theirMatch?.liked === true
-      }
+      console.log('Like recorded successfully (no match yet)')
+      return { success: true, matched: false }
 
     } catch (error) {
       console.error('Error in handleSwipe:', error)
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred'
-      }
+      return { success: false, error }
+    } finally {
+      setIsProcessing(false)
     }
   }
 
-  return { handleSwipe }
+  return { handleSwipe, isProcessing }
 } 
