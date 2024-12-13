@@ -171,6 +171,14 @@ export default function MessagesPage() {
     return match.user1_id === currentUserId ? match.user2 : match.user1
   }
 
+  const navigateToChat = (matchId: string) => {
+    if (!matchId) {
+      console.error('No match ID provided')
+      return
+    }
+    router.push(`/messages/${matchId}`)
+  }
+
   if (loading) {
     return (
       <main className="min-h-screen bg-gray-50">
@@ -201,33 +209,35 @@ export default function MessagesPage() {
           if (!otherUser) return null
           
           return (
-            <Link
-              key={room.id}
-              href={`/messages/${room.match_id}`}
-              className="block bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
-            >
-              <div className="p-4 flex items-center space-x-4">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden">
-                    {otherUser.avatar_url && (
-                      <img
-                        src={otherUser.avatar_url}
-                        alt={otherUser.full_name}
-                        className="w-full h-full object-cover"
-                      />
-                    )}
+            <div onClick={() => navigateToChat(room.match.id)}>
+              <Link
+                key={room.id}
+                href={`/messages/${room.match_id}`}
+                className="block bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
+              >
+                <div className="p-4 flex items-center space-x-4">
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden">
+                      {otherUser.avatar_url && (
+                        <img
+                          src={otherUser.avatar_url}
+                          alt={otherUser.full_name}
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {otherUser.full_name}
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      New match! Say hello 👋
+                    </p>
                   </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {otherUser.full_name}
-                  </p>
-                  <p className="text-sm text-gray-400">
-                    New match! Say hello 👋
-                  </p>
-                </div>
-              </div>
-            </Link>
+              </Link>
+            </div>
           )
         })}
       </div>

@@ -38,6 +38,12 @@ export default function ChatPage({ params }: { params: { matchId: string } }) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    if (!params.matchId) {
+      console.error('No matchId provided')
+      router.push('/messages')
+      return
+    }
+
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) {
@@ -53,6 +59,8 @@ export default function ChatPage({ params }: { params: { matchId: string } }) {
 
   const setupChat = async (user: any) => {
     try {
+      console.log('Setting up chat for match:', params.matchId)
+
       const { data: match, error: matchError } = await supabase
         .from('matches')
         .select(`
@@ -63,7 +71,12 @@ export default function ChatPage({ params }: { params: { matchId: string } }) {
         .eq('id', params.matchId)
         .single()
 
-      if (matchError) throw matchError
+      if (matchError) {
+        console.error('Match error:', matchError)
+        throw matchError
+      }
+
+      console.log('Match found:', match)
 
       const otherUserProfile = match.user1.id === user.id ? match.user2 : match.user1
       setOtherUser(otherUserProfile)
@@ -96,7 +109,7 @@ export default function ChatPage({ params }: { params: { matchId: string } }) {
       setMessages(existingMessages || [])
       setIsLoading(false)
     } catch (error) {
-      console.error('Error setting up chat:', error)
+      console.error('Error in setupChat:', error)
       setIsLoading(false)
     }
   }

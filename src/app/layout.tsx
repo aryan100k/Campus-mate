@@ -1,8 +1,12 @@
+import { Inter } from 'next/font/google'
+import { AuthProvider } from '@/lib/AuthContext'
 import './globals.css'
+
+const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
   title: 'Campus Mate',
-  description: 'Dating app for ISB students',
+  description: 'Connect with your campus mates',
 }
 
 export default function RootLayout({
@@ -11,9 +15,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="light">
-      <body className="min-h-screen antialiased">
-        {children}
+    <html lang="en">
+      <body className={inter.className}>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   )
