@@ -162,7 +162,7 @@ export default function ChatPage({ params }: { params: { matchId: string } }) {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 flex flex-col">
+    <main className="h-screen bg-gray-50 flex flex-col">
       <div className="bg-white border-b p-4 flex items-center space-x-4">
         <Button
           variant="ghost"
@@ -176,7 +176,7 @@ export default function ChatPage({ params }: { params: { matchId: string } }) {
         </div>
       </div>
 
-      <div className="flex-1 p-4 space-y-4 overflow-y-auto pb-20">
+      <div className="flex-1 p-4 space-y-4 overflow-y-auto pb-32">
         {messages.map(message => (
           <div
             key={message.id}

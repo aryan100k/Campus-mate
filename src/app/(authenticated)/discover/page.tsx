@@ -131,7 +131,7 @@ export default function DiscoverPage() {
     }
     
     checkAuth()
-  }, [])
+  }, [user, router])
 
   // Loading state
   if (loading) {
