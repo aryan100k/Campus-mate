@@ -78,9 +78,9 @@ export default function SetupProfilePage() {
         full_name: name,
         age: parseInt(age),
         program,
-        gender: gender,
+        gender: gender === 'man' ? 'Man' : 'Woman',
         preferences: {
-          gender_preference: preference
+          gender_preference: preference === 'men' ? 'Man' : 'Woman'
         },
         photos: photoUrls,
         avatar_url: photoUrls[0]?.url || null,
@@ -155,11 +155,11 @@ export default function SetupProfilePage() {
               >
                 <div className="flex gap-4">
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="Man" id="man" />
+                    <RadioGroupItem value="man" id="man" />
                     <Label htmlFor="man">Man</Label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="Woman" id="woman" />
+                    <RadioGroupItem value="woman" id="woman" />
                     <Label htmlFor="woman">Woman</Label>
                   </div>
                 </div>
@@ -176,11 +176,11 @@ export default function SetupProfilePage() {
               >
                 <div className="flex gap-4">
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="Men" id="show-men" />
+                    <RadioGroupItem value="men" id="show-men" />
                     <Label htmlFor="show-men">Men</Label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="Women" id="show-women" />
+                    <RadioGroupItem value="women" id="show-women" />
                     <Label htmlFor="show-women">Women</Label>
                   </div>
                 </div>
