@@ -11,6 +11,7 @@ import { createClient } from '@supabase/supabase-js'
 import { useAuth } from '@/lib/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { PhotoCarousel } from '@/components/photo-carousel'
+import { MatchNotification } from '@/components/match-notification'
 
 interface Profile {
   id: string
@@ -37,25 +38,6 @@ export default function DiscoverPage() {
   const [loading, setLoading] = useState(true)
   const [showMatch, setShowMatch] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
-
-  useEffect(() => {
-    const fetchProfile = async () => {
-      if (!user?.id) return
-      
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-
-      if (data && !error) {
-        setProfile(data)
-      }
-    }
-
-    fetchProfile()
-  }, [user?.id])
 
   // Define fetchProfiles function first
   const fetchProfiles = async (userId: string) => {
@@ -74,21 +56,22 @@ export default function DiscoverPage() {
         return
       }
 
-      // Get already swiped profiles
-      const { data: swipes } = await supabase
-        .from('swipes')
-        .select('target_id')
+      // Get already liked/disliked profiles
+      const { data: interactions } = await supabase
+        .from('likes')
+        .select('liked_user_id')
         .eq('user_id', userId)
+        .eq('is_like', true)
 
-      const swipedIds = swipes?.map(swipe => swipe.target_id) || []
+      const interactedIds = interactions?.map(like => like.liked_user_id) || []
 
-      // Get potential matches excluding already swiped profiles
+      // Get potential matches excluding already interacted profiles
       const { data: potentialMatches, error: matchError } = await supabase
         .from('profiles')
         .select('*')
         .neq('id', userId)
         .eq('gender', userProfile.gender === 'Man' ? 'Woman' : 'Man')
-        .not('id', 'in', `(${swipedIds.join(',')})`)
+        .not('id', 'in', `(${interactedIds.length ? interactedIds.join(',') : '00000000-0000-0000-0000-000000000000'})`)
 
       if (matchError) {
         console.error('Error fetching matches:', matchError)
@@ -131,7 +114,7 @@ export default function DiscoverPage() {
     }
     
     checkAuth()
-  }, [user, router])
+  }, [router])
 
   // Loading state
   if (loading) {
@@ -167,22 +150,6 @@ export default function DiscoverPage() {
   const currentProfile = profiles[currentIndex]
 
   // Add swipe animation functionality
-  const handleSwipeAnimation = (dir: string) => {
-    const card = document.querySelector('.profile-card') as HTMLElement;
-    if (!card) return;
-
-    const swipeDistance = dir === 'right' ? 1000 : -1000;
-    const rotation = dir === 'right' ? 30 : -30;
-
-    card.style.transition = 'transform 0.5s ease-out';
-    card.style.transform = `translateX(${swipeDistance}px) rotate(${rotation}deg)`;
-
-    setTimeout(() => {
-      card.style.transition = 'none';
-      card.style.transform = 'none';
-    }, 500);
-  }
-
   const swipe = async (dir: string) => {
     if (!userId) {
       console.error('No user ID available, current userId:', userId)
@@ -231,54 +198,6 @@ export default function DiscoverPage() {
       console.error('Swipe error:', error)
       setDirection(null)
     }
-  }
-
-  const checkExistingMatch = async (profileId: string) => {
-    if (!user?.id) return null
-    
-    const { data } = await supabase
-      .from('matches')
-      .select('*')
-      .or(`and(user_id.eq.${user.id},target_id.eq.${profileId}),and(user_id.eq.${profileId},target_id.eq.${user.id})`)
-      .single()
-    
-    return data
-  }
-
-  const MatchNotification = ({ profile, onClose }: { profile: Profile, onClose: () => void }) => {
-    return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.8 }}
-        className="fixed inset-0 flex items-center justify-center bg-black/60 z-50 p-4"
-      >
-        <div className="bg-white rounded-3xl p-8 text-center max-w-sm w-full">
-          <h2 className="text-2xl font-bold mb-4">It's a Match! 🎉</h2>
-          <p className="text-gray-600 mb-6">
-            You and {profile.full_name} liked each other
-          </p>
-          <div className="space-y-4">
-            <Button 
-              onClick={() => {
-                router.push(`/messages/${profile.id}`)
-                onClose()
-              }}
-              className="w-full bg-gradient-to-r from-pink-500 to-orange-500"
-            >
-              Send Message
-            </Button>
-            <Button 
-              onClick={onClose}
-              variant="outline"
-              className="w-full"
-            >
-              Keep Swiping
-            </Button>
-          </div>
-        </div>
-      </motion.div>
-    )
   }
 
   return (
@@ -372,4 +291,3 @@ export default function DiscoverPage() {
     </main>
   )
 }
-

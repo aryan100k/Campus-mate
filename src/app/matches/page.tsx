@@ -88,13 +88,13 @@ export default function MatchesPage() {
             user1_id,
             user2_id,
             created_at,
-            user1:profiles (
+            user1:profiles!matches_user1_id_fkey (
               id,
               full_name,
               avatar_url,
               photos
             ),
-            user2:profiles (
+            user2:profiles!matches_user2_id_fkey (
               id,
               full_name,
               avatar_url,
