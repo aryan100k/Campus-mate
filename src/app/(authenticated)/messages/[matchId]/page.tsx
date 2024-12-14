@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Send, ArrowLeft } from 'lucide-react'
@@ -37,7 +37,7 @@ export default function ChatPage({ params }: { params: { matchId: string } }) {
   const [chatRoomId, setChatRoomId] = useState<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const setupChat = async (user: any) => {
+  const setupChat = useCallback(async (user: any) => {
     try {
       console.log('Setting up chat for match:', params.matchId)
 
@@ -92,7 +92,7 @@ export default function ChatPage({ params }: { params: { matchId: string } }) {
       console.error('Error in setupChat:', error)
       setIsLoading(false)
     }
-  }
+  }, [params.matchId])
 
   useEffect(() => {
     if (!params.matchId) {

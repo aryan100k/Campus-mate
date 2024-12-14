@@ -76,7 +76,7 @@ export default function MessagesPage() {
     }
     
     checkAuth()
-  }, [])
+  }, [router])
 
   const fetchChatRooms = async (currentUserId: string) => {
     try {
@@ -209,9 +209,8 @@ export default function MessagesPage() {
           if (!otherUser) return null
           
           return (
-            <div onClick={() => navigateToChat(room.match.id)}>
+            <div key={room.id} onClick={() => navigateToChat(room.match.id)}>
               <Link
-                key={room.id}
                 href={`/messages/${room.match_id}`}
                 className="block bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
               >
