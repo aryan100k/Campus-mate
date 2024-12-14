@@ -186,7 +186,7 @@ export default function MessagesPage() {
           <h1 className="text-2xl font-bold text-gray-900 mb-6">Messages</h1>
           <div className="animate-pulse space-y-4">
             {[1, 2, 3].map(i => (
-              <div key={i} className="bg-white p-4 rounded-lg shadow-sm">
+              <div key={`loading-${i}`} className="bg-white p-4 rounded-lg shadow-sm">
                 <div className="h-12 bg-gray-200 rounded-full w-12 mb-4"></div>
                 <div className="h-4 bg-gray-200 rounded w-3/4"></div>
               </div>

@@ -112,7 +112,7 @@ export default function ChatPage({ params }: { params: { matchId: string } }) {
     }
     
     checkAuth()
-  }, [params.matchId, router])
+  }, [params.matchId, router, setupChat])
 
   useEffect(() => {
     // Subscribe to new messages
