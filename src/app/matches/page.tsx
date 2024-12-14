@@ -157,8 +157,10 @@ export default function MatchesPage() {
       }
     }
 
-    fetchMatches()
-  }, [user?.id, authLoading])
+    if (!authLoading && user?.id) {
+      fetchMatches()
+    }
+  }, [user, user?.id, authLoading])
 
   // Add this console log to track renders
   console.log('Rendering MatchesPage:', { 

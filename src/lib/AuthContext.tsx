@@ -7,13 +7,13 @@ import { Session } from 'inspector'
 
 interface AuthContextType {
   user: User | null
-  session: Session | null
+  loading: boolean
   signOut: () => Promise<void>
 }
 
 export const AuthContext = createContext<AuthContextType>({
   user: null,
-  session: null,
+  loading: true,
   signOut: async () => {},
 })
 
@@ -43,9 +43,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut()
   }
-
   return (
-    <AuthContext.Provider value={{ user, session, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signOut }}>
       {!loading && children}
     </AuthContext.Provider>
   )

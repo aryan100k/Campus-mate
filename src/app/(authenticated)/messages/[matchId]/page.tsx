@@ -37,26 +37,6 @@ export default function ChatPage({ params }: { params: { matchId: string } }) {
   const [chatRoomId, setChatRoomId] = useState<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (!params.matchId) {
-      console.error('No matchId provided')
-      router.push('/messages')
-      return
-    }
-
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user) {
-        router.push('/login')
-        return
-      }
-      setCurrentUser(session.user)
-      setupChat(session.user)
-    }
-    
-    checkAuth()
-  }, [params.matchId])
-
   const setupChat = async (user: any) => {
     try {
       console.log('Setting up chat for match:', params.matchId)
@@ -113,6 +93,26 @@ export default function ChatPage({ params }: { params: { matchId: string } }) {
       setIsLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (!params.matchId) {
+      console.error('No matchId provided')
+      router.push('/messages')
+      return
+    }
+
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) {
+        router.push('/login')
+        return
+      }
+      setCurrentUser(session.user)
+      setupChat(session.user)
+    }
+    
+    checkAuth()
+  }, [params.matchId, router])
 
   useEffect(() => {
     // Subscribe to new messages
