@@ -56,41 +56,44 @@ export default function DiscoverPage() {
         return
       }
 
-      // Get already liked/disliked profiles
+      // First get all likes/dislikes by the user
       const { data: interactions } = await supabase
         .from('likes')
         .select('liked_user_id')
         .eq('user_id', userId)
-        .eq('is_like', true)
 
+      // Create array of already interacted profile IDs
       const interactedIds = interactions?.map(like => like.liked_user_id) || []
+      console.log('Already interacted with profiles:', interactedIds)
 
-      // Get potential matches excluding already interacted profiles
-      const { data: potentialMatches, error: matchError } = await supabase
+      // Get profiles excluding already interacted ones
+      const { data: potentialMatches, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
         .neq('id', userId)
-        .eq('gender', userProfile.gender === 'Man' ? 'Woman' : 'Man')
         .not('id', 'in', `(${interactedIds.length ? interactedIds.join(',') : '00000000-0000-0000-0000-000000000000'})`)
+        .eq('gender', userProfile.gender === 'Man' ? 'Woman' : 'Man')
+        .order('created_at', { ascending: false })
 
-      if (matchError) {
-        console.error('Error fetching matches:', matchError)
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError)
         return
       }
 
-      if (potentialMatches) {
-        const validProfiles = potentialMatches.filter(profile => 
-          profile.photos && 
-          profile.photos.length > 0 && 
-          profile.full_name &&
-          profile.age
-        )
-        console.log('Valid profiles after filtering:', validProfiles)
-        setProfiles(validProfiles)
-      }
+      // Filter valid profiles
+      const validProfiles = potentialMatches?.filter(profile => 
+        profile.photos && 
+        profile.photos.length > 0 && 
+        profile.full_name &&
+        profile.age
+      ) || []
+
+      console.log('Valid profiles found:', validProfiles.length)
+      setProfiles(validProfiles)
+      setLoading(false)
+
     } catch (error) {
       console.error('Error in fetchProfiles:', error)
-    } finally {
       setLoading(false)
     }
   }
