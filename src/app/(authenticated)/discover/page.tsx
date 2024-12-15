@@ -139,7 +139,7 @@ export default function DiscoverPage() {
             <p className="text-gray-600 mb-4">Check back later for new matches!</p>
             <Button 
               onClick={() => user?.id && fetchProfiles(user.id)}
-              className="bg-isb-blue text-white hover:bg-isb-blue/90"
+              className="bg-isb-blue text-black hover:bg-isb-blue/90"
             >
               Refresh Profiles
             </Button>
