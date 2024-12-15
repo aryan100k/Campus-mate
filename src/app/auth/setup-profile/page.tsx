@@ -101,7 +101,7 @@ export default function SetupProfilePage() {
       router.push('/discover')
     } catch (error) {
       console.error('Error:', error)
-      alert('Error setting up profile. Please try again.')
+      alert('Error setting up profile. Please try again with 1 profile pic only.')
     } finally {
       setIsSubmitting(false)
     }
