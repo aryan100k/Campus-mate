@@ -4,10 +4,10 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Campus Mate',
-  description: 'ISB exclusive dating site',
+  description: 'ISB Exclusive Dating Site',
   openGraph: {
     title: 'Campus Mate',
-    description: 'ISB exclusive dating site',
+    description: 'ISB Exclusive Dating Site',
     url: 'https://www.campusmate.co.in/',
     siteName: 'Campus Mate',
     locale: 'en_US',
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Campus Mate',
-    description: 'ISB exclusive dating site',
+    description: 'ISB Exclusive Dating Site',
   }
 }
 
