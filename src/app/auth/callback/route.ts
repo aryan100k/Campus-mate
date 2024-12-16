@@ -42,10 +42,10 @@ export async function GET(request: Request) {
       }
 
       // Always redirect to login after verification
-      return NextResponse.redirect(requestUrl.origin + '/auth/login')
+      return NextResponse.redirect(requestUrl.origin + '/auth/setup-profile')
     } catch (error) {
       console.error('Error in callback:', error)
-      return NextResponse.redirect(requestUrl.origin + '/auth/login?error=callback_error')
+      return NextResponse.redirect(requestUrl.origin + '/auth/setup-profile?error=callback_error')
     }
   }
 
