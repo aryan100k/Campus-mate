@@ -40,6 +40,13 @@ export default function SetupProfilePage() {
     setIsSubmitting(true)
 
     try {
+      // Validate that at least one photo is uploaded
+      if (photos.length === 0) {
+        alert('Please upload at least one photo to continue')
+        setIsSubmitting(false)
+        return
+      }
+
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       if (userError || !user) throw userError || new Error('No user found')
 
@@ -72,6 +79,13 @@ export default function SetupProfilePage() {
         })
       }
 
+      // Validate that photos were actually uploaded
+      if (photoUrls.length === 0) {
+        alert('Please upload at least one photo to continue')
+        setIsSubmitting(false)
+        return
+      }
+
       // Create profile with photo URLs
       const profileData = {
         id: user.id,
@@ -101,7 +115,7 @@ export default function SetupProfilePage() {
       router.push('/discover')
     } catch (error) {
       console.error('Error:', error)
-      alert('Error setting up profile. Please try again with 1 profile pic only.')
+      alert('Error setting up profile. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
